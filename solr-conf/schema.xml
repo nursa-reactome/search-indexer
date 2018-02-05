@@ -96,7 +96,12 @@
     <copyField source="diseaseName"                     dest="spellcheck"/>
     <copyField source="diseaseSynonyms"                 dest="spellcheck"/>
 
-    <solrQueryParser defaultOperator="OR"/>
+    <!--
+      TODO - defaultOperator is deprecated in Solr 6 and unsupported in Solr 7.
+      Since the Solr default operator is already OR, remove this setting.
+      
+      solrQueryParser defaultOperator="OR"/>
+      -->
     <uniqueKey>dbId</uniqueKey>
 
     <types>
