@@ -24,6 +24,8 @@ import java.lang.reflect.Method;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import javax.management.RuntimeErrorException;
+
 /**
  * @author Guilherme S Viteri <gviteri@ebi.ac.uk>
  */
@@ -68,6 +70,10 @@ class DocumentBuilder {
         }
 
         // Setting common attributes
+        if (databaseObject == null) {
+            logger.error("Database object not found - id: " + dbId);
+            return null;
+        }
         document.setDbId(databaseObject.getDbId().toString());
         document.setStId(databaseObject.getStId());
         document.setOldStId(databaseObject.getOldStId());
