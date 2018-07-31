@@ -486,7 +486,7 @@ public class Indexer {
             // Get all ReferenceEntities in Reactome Database. We have around 370000. These are the objects which have the accession.
             // Then, check if the given ref. identifier is in the accessionList (which has all the accessions from IntAct).
             String queryEntities = "MATCH (n:ReferenceEntity) RETURN DISTINCT n.identifier AS identifier";
-            referenceEntities = advancedDatabaseObjectService.customQueryResults(queryEntities, null);
+            referenceEntities = advancedDatabaseObjectService.customQueryResults(String.class, queryEntities, null);
             total = referenceEntities.size();
             logger.info("Retrieving accessions from Reactome -- Accession list has [" + accessionList.size() + "] entries and [" + referenceEntities.size() + "] ReferenceEntities");
             for (String accession : referenceEntities) {

@@ -35,8 +35,8 @@
     </developers>
 
     <properties>
-        <graph.core>1.1.2</graph.core>
-        <interactors.core>1.0.7</interactors.core>
+        <graph.core>1.1.4</graph.core>
+        <interactors.core>1.0.11</interactors.core>
         <solr.version>6.1.0</solr.version>
         <jasp.version>2.1</jasp.version>
         <mail.version>1.5.6</mail.version>

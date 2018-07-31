@@ -411,7 +411,7 @@ runIndexer () {
 
     echo "Checking if current directory is valid project"
     if ! mvn -q -U clean package -DskipTests ; then
-        if [ ! -f /target/Indexer-jar-with-dependencies.jar ]; then
+        if [ ! -f ./target/Indexer-jar-with-dependencies.jar ]; then
 
             echo "Cloning project from repository..."
 
