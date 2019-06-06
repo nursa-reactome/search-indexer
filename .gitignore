@@ -6,4 +6,5 @@ logs
 ebeye.xml
 *.log*
 
-*target*
+/target
+sitemap*

@@ -16,53 +16,13 @@ The Search Project is split into 'Indexer' and 'Search':
  - [SolR](#solr)
 
 ## Download ##
-* Download all-in-one script setup https://github.com/reactome/Search/blob/master/setup-solr.sh
-* Open a terminal and navigate to the folder where the script has been downloaded
-* Check script options before executing
+
+* Cloning...
 
 ```console
-$> ./setup-solr.sh -h
+$> git clone https://github.com/reactome/search-indexer.git
 
-OUTPUT:
-setup-solr.sh <execution_type -a, -b or -c> -m <solr_passwd>
-                   [-d <neo4j_host> -e <neo4j_port> —f <neo4j_user> -g <neo4j_passwd>
-                   -j <solr_core> -k <sorl_port> -l <solr_user> -n <solr_version>
-                   -o <interactors_db_path>
-                   -p <smtp_server> -q <smtp_port> -r <mail_from>
-                   -s -t
-                   -u <git_branch>
-                   ] -- program to auto setup the Apache Lucene Solr in Reactome environment.
-
-where:
-    -h  Program help/usage
-
-    Execution Type:
-        -a  Install SolR                DEFAULT: false
-        -b  Update SolR core            DEFAULT: false
-        -c  Import Reactome data        DEFAULT: false
-
-    Arguments:
-        -d  Neo4j Host                  DEFAULT: localhost
-        -e  Neo4j Port                  DEFAULT: 7474
-        -f  Neo4j User                  DEFAULT: neo4j
-        -g  Neo4j Password              REQUIRED [Import Reactome data]
-
-        -j  SolR Core name              DEFAULT: reactome
-        -k  SolR Port                   DEFAULT: 8983
-        -l  SolR User                   DEFAULT: admin
-        -m  SolR Password               REQUIRED [All Execution Type]
-        -n  SolR Version                DEFAULT: 6.1.0
-
-        -o  Interactors database path   DEFAULT: /usr/local/reactomes/Reactome/production/ContentService/interactors.db
-
-        -p  Mail SMTP Server            DEFAULT: smtp.oicr.on.ca
-        -q  Mail SMTP port              DEFAULT: 25
-        -r  Mail From                   DEFAULT: reactome-developer@reactome.org
-
-        -s  XML output for EBeye        DEFAULT: false
-        -t  Send indexing report mail   DEFAULT: false
-
-        -u  Indexer GitHub Branch       DEFAULT: master
+$> cd search-indexer
 ```
 
 ## Installing SolR ##
@@ -73,13 +33,13 @@ where:
   * Escape special characters if they are present in the password e.g not4shar\\&, use backslash (\\).
 
 ```console
-$> sudo ./setup-solr.sh -a -m <solr_pass>
+$> sudo ./scripts/install-solr.sh solrpass=not2share
 ```
 
-e.g
+* Help
 
 ```console
-$> sudo ./setup-solr.sh -a -m not2share
+$> sudo ./scripts/install-solr.sh help
 ```
 
 * To validate Apache SolR installation reach out the URL http://[serverip]:[port]/solr (must ask for Basic Authentication). Please provide the user and password configured in the setup-solr.sh script
@@ -95,13 +55,13 @@ Automatic way to updated SolR Configuration files, mainly schema.xml (requires n
   * Escape special characters if they are present in the password e.g not4shar\\&, use backslash (\\).
 
 ```console
-$> sudo ./setup-solr.sh -b -m <solr_pass>
+$> sudo ./scripts/update-solr-config.sh solrpass=not2share
 ```
 
-e.g
+* Help
 
 ```console
-$> sudo ./setup-solr.sh -b -m not2share
+$> sudo ./scripts/update-solr-config.sh help
 ```
 
 * To verify the new configuration in SolR, go to http://[serverip]:[port]/solr (must ask for Basic Authentication).
@@ -114,49 +74,33 @@ $> sudo ./setup-solr.sh -b -m not2share
 
 ### :white_check_mark: Pre-Requirements ###
 
-* SolR 6.x.x properly installed using setup-solr.sh option -a
+* SolR 6.x.x properly installed using install-solr.sh
   * You should be able to access http://[serverip]:[port]/solr
 * Neo4j Graph Database + Reactome Graph Database
   * [Installing Neo4j](https://github.com/reactome/graph-importer)
-  * [Download Reactome Graph Database](http://reactome.org/download/current/reactome.graphdb.tgz)
+  * [Download Reactome Graph Database](https://reactome.org/download/current/reactome.graphdb.tgz)
 * Maven Setup: https://maven.apache.org/guides/getting-started/maven-in-five-minutes.html
 * Escape special characters if they are present in the password e.g not4shar\\&, use backslash (\\).
 
-### Indexer by default :books: ###
+### Indexer default configuration: ###
+* Data
+* Ebeye.xml
+* Icons + Mapping Files
+* Website Sitemap files
+* Target Swissprot (Search term)
 
 ```console
-$> ./setup-solr.sh -c -m <solr_pass> -g <neo4j_passwd>
+$> ./scripts/run-indexer.sh neo4jpass=not2share solrpass=not4you iconsdir=/home/reactome/icons ehlddir=/home/reactome/ehlds maildest=yourmail@solr6.com
 ```
 
-e.g
+Note: if ```maildest``` isn't provided no notification will be sent
+
+Note 2: if ```iconsdir``` AND ```ehlddir``` aren't provided icons won't be indexed
+
+* Help / extra options
 
 ```console
-$> ./setup-solr.sh -c -m not2share -g neo4j
-```
-
-### Indexer + Ebeye.xml ###
-
-* Specify -s and the ebeye.xml file is going to be created.
-
-```console
-$> ./setup-solr.sh -c -m not2share -g neo4j -s
-```
-
-### Indexer + Mail Notification :envelope: ###
-
-  * Specify -t and an email is going to be sent at the end of indexing.
-  * Change the default mail configuration by setting -p -q -r
-
-```console
-$> ./setup-solr.sh -c -m not2share -g neo4j -t
-```
-
-### Indexer + GitHub Branch ###
-
-  * Specify GitHub branch in order to run the indexer based on the code for the given branch.
-
-```console
-$> ./setup-solr.sh -c -m not2share -g neo4j -u add_new_field
+$> sudo ./scripts/run-indexer.sh help
 ```
 
 ## SolR ##
@@ -170,3 +114,13 @@ sudo service solr [stop|start|restart|status]
 ### Solr Console ###
 
 :computer: [Console](http://localhost:8983/solr/)
+
+
+## Indexing Icons only
+
+
+```console
+$> mvn clean package
+
+$> java -cp target/Indexer-jar-with-dependencies.jar org.reactome.server.tools.indexer.IconsMain --solrPw xxx --iconsDir /path1 --ehldDir /path2
+```

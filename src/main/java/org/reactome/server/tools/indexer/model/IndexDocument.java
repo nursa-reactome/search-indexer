@@ -43,7 +43,7 @@ public class IndexDocument {
     @Field
     private List<String> relatedSpecies;
 
-    /** Not in Solr, but used in the ebeye.xml file **/
+    // Not in Solr, but used in the ebeye.xml file
     private List<String> taxId;
 
     @Field
@@ -97,7 +97,6 @@ public class IndexDocument {
     @Field
     private List<String> crossReferences;
 
-
     @Field
     private List<String> referenceCrossReferences;
 
@@ -123,26 +122,31 @@ public class IndexDocument {
     private List<String> referenceGeneNames;
 
     @Field
-    private List<String> reactomeInteractorIds;
-    @Field
-    private List<String> interactionsIds;
-    @Field
-    private List<Double> scores;
-    @Field
-    private List<String> interactorAccessions;
-    @Field
-    private List<String> reactomeInteractorNames;
-
-    // The attribute is a collection but is singular just to make the lucene query syntax easier.
-    // e.g author:"John Doe"
-    // This field has authored and reviewed for a given Event.
-    @Field
-    private Set<String> author;
-    @Field
-    private Set<String> authorOrcid;
-
-    @Field
     private Set<String> fireworksSpecies;
+
+    @Field
+    private List<String> diagrams;
+
+    @Field
+    private List<String> occurrences;
+
+    @Field
+    private List<String> llps; // lower level pathways ( for flagging in the Fireworks
+
+    @Field
+    private String orcidId;
+
+    @Field
+    private Long authoredPathways;
+
+    @Field
+    private Long authoredReactions;
+
+    @Field
+    private Long reviewedPathways;
+
+    @Field
+    private Long reviewedReactions;
 
     // Auto Generated Getters Setters
 
@@ -261,7 +265,6 @@ public class IndexDocument {
         } else {
             this.allCrossReferences.addAll(allCrossReferences);
         }
-
     }
 
     public String getRegulatedEntity() {
@@ -518,46 +521,6 @@ public class IndexDocument {
         this.databaseName = databaseName;
     }
 
-    public List<String> getReactomeInteractorIds() {
-        return reactomeInteractorIds;
-    }
-
-    public void setReactomeInteractorIds(List<String> reactomeInteractorIds) {
-        this.reactomeInteractorIds = reactomeInteractorIds;
-    }
-
-    public List<String> getInteractionsIds() {
-        return interactionsIds;
-    }
-
-    public void setInteractionsIds(List<String> interactionsIds) {
-        this.interactionsIds = interactionsIds;
-    }
-
-    public List<Double> getScores() {
-        return scores;
-    }
-
-    public void setScores(List<Double> scores) {
-        this.scores = scores;
-    }
-
-    public List<String> getInteractorAccessions() {
-        return interactorAccessions;
-    }
-
-    public void setInteractorAccessions(List<String> interactorAccessions) {
-        this.interactorAccessions = interactorAccessions;
-    }
-
-    public List<String> getReactomeInteractorNames() {
-        return reactomeInteractorNames;
-    }
-
-    public void setReactomeInteractorNames(List<String> reactomeInteractorNames) {
-        this.reactomeInteractorNames = reactomeInteractorNames;
-    }
-
     public List<String> getReferenceSecondaryIdentifier() {
         return referenceSecondaryIdentifier;
     }
@@ -566,27 +529,75 @@ public class IndexDocument {
         this.referenceSecondaryIdentifier = referenceSecondaryIdentifier;
     }
 
-    public Set<String> getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(Set<String> author) {
-        this.author = author;
-    }
-
-    public Set<String> getAuthorOrcid() {
-        return authorOrcid;
-    }
-
-    public void setAuthorOrcid(Set<String> authorOrcid) {
-        this.authorOrcid = authorOrcid;
-    }
-
     public Set<String> getFireworksSpecies() {
         return fireworksSpecies;
     }
 
     public void setFireworksSpecies(Set<String> fireworksSpecies) {
         this.fireworksSpecies = fireworksSpecies;
+    }
+
+    public List<String> getDiagrams() {
+        return diagrams;
+    }
+
+    public void setDiagrams(List<String> diagrams) {
+        this.diagrams = diagrams;
+    }
+
+    public List<String> getOccurrences() {
+        return occurrences;
+    }
+
+    public void setOccurrences(List<String> occurrences) {
+        this.occurrences = occurrences;
+    }
+
+    public List<String> getLlps() {
+        return llps;
+    }
+
+    public void setLlps(List<String> llps) {
+        this.llps = llps;
+    }
+
+    public String getOrcidId() {
+        return orcidId;
+    }
+
+    public void setOrcidId(String orcidId) {
+        this.orcidId = orcidId;
+    }
+
+    public Long getAuthoredPathways() {
+        return authoredPathways;
+    }
+
+    public void setAuthoredPathways(Long authoredPathways) {
+        this.authoredPathways = authoredPathways;
+    }
+
+    public Long getAuthoredReactions() {
+        return authoredReactions;
+    }
+
+    public void setAuthoredReactions(Long authoredReactions) {
+        this.authoredReactions = authoredReactions;
+    }
+
+    public Long getReviewedPathways() {
+        return reviewedPathways;
+    }
+
+    public void setReviewedPathways(Long reviewedPathways) {
+        this.reviewedPathways = reviewedPathways;
+    }
+
+    public Long getReviewedReactions() {
+        return reviewedReactions;
+    }
+
+    public void setReviewedReactions(Long reviewedReactions) {
+        this.reviewedReactions = reviewedReactions;
     }
 }

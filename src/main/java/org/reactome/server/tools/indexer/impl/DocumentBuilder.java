@@ -3,13 +3,16 @@ package org.reactome.server.tools.indexer.impl;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.ogm.exception.MappingException;
 import org.reactome.server.graph.domain.model.*;
+import org.reactome.server.graph.domain.result.DiagramOccurrences;
 import org.reactome.server.graph.exception.CustomQueryException;
 import org.reactome.server.graph.service.AdvancedDatabaseObjectService;
 import org.reactome.server.graph.service.DatabaseObjectService;
+import org.reactome.server.graph.service.DiagramService;
+import org.reactome.server.graph.service.PathwaysService;
 import org.reactome.server.tools.indexer.model.CrossReference;
 import org.reactome.server.tools.indexer.model.IndexDocument;
 import org.reactome.server.tools.indexer.model.SpeciesResult;
-import org.reactome.server.tools.indexer.util.IndexerMapSet;
+import org.reactome.server.tools.indexer.util.MapSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,13 +40,15 @@ class DocumentBuilder {
 
     private DatabaseObjectService databaseObjectService;
     private AdvancedDatabaseObjectService advancedDatabaseObjectService;
+    private DiagramService diagramService;
+    private PathwaysService pathwaysService;
 
-    private Map<Long, Set<String>> simpleEntitiesSpecies = null;
+    private Map<Long, Set<String>> simpleEntitiesAndDrugSpecies = null;
 
     private List<String> keywords;
 
     public DocumentBuilder() {
-        keywords = loadFile(CONTROLLED_VOCABULARY);
+        keywords = loadFile();
         if (keywords == null) {
             logger.error("No keywords available");
         }
@@ -52,8 +57,8 @@ class DocumentBuilder {
     @Transactional
     IndexDocument createSolrDocument(Long dbId) {
 
-        if (simpleEntitiesSpecies == null) {
-            cacheSimpleEntitySpecies();
+        if (simpleEntitiesAndDrugSpecies == null) {
+            cacheSimpleEntityAndDrugSpecies();
         }
 
         IndexDocument document = new IndexDocument();
@@ -64,7 +69,7 @@ class DocumentBuilder {
         DatabaseObject databaseObject;
         try {
             databaseObject = databaseObjectService.findById(dbId);
-        } catch (MappingException e){
+        } catch (MappingException e) {
             logger.error("There has been an error mapping the object with dbId: " + dbId, e);
             return null;
         }
@@ -96,10 +101,8 @@ class DocumentBuilder {
             // SPECIFIC FOR PHYSICAL ENTITIES
             setGoTerms(document, physicalEntity.getGoCellularComponent());
             setReferenceEntity(document, physicalEntity);
-
         } else if (databaseObject instanceof Event) {
             Event event = (Event) databaseObject;
-
             // GENERAL ATTRIBUTES
             setNameAndSynonyms(document, event, event.getName());
             setLiteratureReference(document, event.getLiteratureReference());
@@ -108,48 +111,46 @@ class DocumentBuilder {
             setCompartment(document, event.getCompartment());
             setCrossReference(document, event.getCrossReference());
             setSpecies(document, event);
-            setAuthorAndReviewed(document, event);
-
+//            setAuthorAndReviewed(document, event);
             // SPECIFIC FOR EVENT
             setGoTerms(document, event.getGoBiologicalProcess());
             if (event instanceof ReactionLikeEvent) {
                 ReactionLikeEvent reactionLikeEvent = (ReactionLikeEvent) event;
                 setCatalystActivities(document, reactionLikeEvent.getCatalystActivity());
             }
-
         } else if (databaseObject instanceof Regulation) {
             Regulation regulation = (Regulation) databaseObject;
-
             // GENERAL ATTRIBUTES
-            setNameAndSynonyms(document, regulation, regulation.getName());
+            document.setName(databaseObject.getDisplayName());
             setLiteratureReference(document, regulation.getLiteratureReference());
             setSummation(document, regulation.getSummation());
             setSpecies(document, regulation);
-
             // SPECIFIC FOR REGULATIONS
             setRegulatedEntity(document, regulation.getRegulatedEntity());
             setRegulator(document, regulation.getRegulator());
-
         }
 
         setFireworksSpecies(document, databaseObject);
-
+        setDiagramOccurrences(document, databaseObject);
+        setLowerLevelPathways(document, databaseObject);
         // Keyword uses the document.getName. Name is set in the document by calling setNameAndSynonyms
         setKeywords(document);
 
         return document;
     }
 
-    private void cacheSimpleEntitySpecies() {
-        logger.info("Caching SimpleEntity Species");
-        String query = "MATCH (n:SimpleEntity)<-[:regulatedBy|regulator|physicalEntity|entityFunctionalStatus|catalystActivity|hasMember|hasCandidate|hasComponent|repeatedUnit|input|output*]-(:ReactionLikeEvent)-[:species]->(s:Species) " +
-                       "WITH n, COLLECT(DISTINCT s.displayName) AS species " +
-                       "RETURN n.dbId AS dbId, species";
+    private void cacheSimpleEntityAndDrugSpecies() {
+        logger.info("Caching SimpleEntity and Drug Species");
+        String query = "" +
+                "MATCH (n)<-[:regulatedBy|regulator|physicalEntity|entityFunctionalStatus|catalystActivity|hasMember|hasCandidate|hasComponent|repeatedUnit|input|output*]-(:ReactionLikeEvent)-[:species]->(s:Species) " +
+                "WHERE (n:SimpleEntity) OR (n:Drug) " +
+                "WITH n, COLLECT(DISTINCT s.displayName) AS species " +
+                "RETURN n.dbId AS dbId, species";
         try {
-            Collection<SpeciesResult> speciesResultList = advancedDatabaseObjectService.customQueryForObjects(SpeciesResult.class, query, null);
-            simpleEntitiesSpecies = new HashMap<>(speciesResultList.size());
+            Collection<SpeciesResult> speciesResultList = advancedDatabaseObjectService.getCustomQueryResults(SpeciesResult.class, query, null);
+            simpleEntitiesAndDrugSpecies = new HashMap<>(speciesResultList.size());
             for (SpeciesResult speciesResult : speciesResultList) {
-                simpleEntitiesSpecies.put(speciesResult.getDbId(), new HashSet<>(speciesResult.getSpecies()));
+                simpleEntitiesAndDrugSpecies.put(speciesResult.getDbId(), new HashSet<>(speciesResult.getSpecies()));
             }
         } catch (CustomQueryException e) {
             logger.error("Could not cache fireworks species");
@@ -160,9 +161,10 @@ class DocumentBuilder {
 
     private void setFireworksSpecies(IndexDocument document, DatabaseObject databaseObject) {
         Set<String> fireworksSpecies = new HashSet<>();
-        if ((databaseObject instanceof SimpleEntity)) {
-            fireworksSpecies = simpleEntitiesSpecies.get(databaseObject.getDbId());
+        if ((databaseObject instanceof SimpleEntity || databaseObject instanceof Drug)) {
+            fireworksSpecies = simpleEntitiesAndDrugSpecies.get(databaseObject.getDbId());
         } else {
+            //noinspection Duplicates
             try {
                 Method getSpecies = databaseObject.getClass().getMethod("getSpecies");
                 Object species = getSpecies.invoke(databaseObject);
@@ -183,7 +185,13 @@ class DocumentBuilder {
             }
         }
 
-        document.setFireworksSpecies(fireworksSpecies.isEmpty() ? null : fireworksSpecies);
+        // Regulation and Other Entities may not have (fireworks)species and solr won't be able to find them
+        // in the Fireworks (filter query fireworksSpecies)
+        if(fireworksSpecies.isEmpty()) {
+            fireworksSpecies.add("Entries without species");
+        }
+
+        document.setFireworksSpecies(fireworksSpecies);
     }
 
     private void setNameAndSynonyms(IndexDocument document, DatabaseObject databaseObject, List<String> name) {
@@ -230,7 +238,7 @@ class DocumentBuilder {
     private void setLiteratureReference(IndexDocument document, List<Publication> literatureReference) {
         if (literatureReference == null) return;
 
-        IndexerMapSet<String, String> mapSet = new IndexerMapSet<>();
+        MapSet<String, String> mapSet = new MapSet<>();
         for (Publication publication : literatureReference) {
             mapSet.add("title", publication.getTitle());
             if (publication instanceof LiteratureReference) {
@@ -262,21 +270,21 @@ class DocumentBuilder {
     private void setSummation(IndexDocument document, List<Summation> summations) {
         if (summations == null) return;
 
-        String summationText = "";
+        StringBuilder summationText = new StringBuilder();
         boolean first = true;
         for (Summation summation : summations) {
             if (first) {
-                summationText = summation.getText();
+                summationText = new StringBuilder(summation.getText());
                 first = false;
             } else {
-                summationText = summationText + "<br>" + summation.getText();
+                summationText.append("<br>").append(summation.getText());
             }
         }
 
-        if (!summationText.contains("computationally inferred")) {
-            document.setSummation(summationText);
+        if (!summationText.toString().contains("computationally inferred")) {
+            document.setSummation(summationText.toString());
         } else {
-            document.setInferredSummation(summationText);
+            document.setInferredSummation(summationText.toString());
         }
     }
 
@@ -400,9 +408,6 @@ class DocumentBuilder {
         if (databaseObject instanceof EntityWithAccessionedSequence) {
             EntityWithAccessionedSequence ewas = (EntityWithAccessionedSequence) databaseObject;
             referenceEntity = ewas.getReferenceEntity();
-        } else if (databaseObject instanceof OpenSet) {
-            OpenSet openSet = (OpenSet) databaseObject;
-            referenceEntity = openSet.getReferenceEntity();
         } else if (databaseObject instanceof SimpleEntity) {
             SimpleEntity simpleEntity = (SimpleEntity) databaseObject;
             referenceEntity = simpleEntity.getReferenceEntity();
@@ -547,27 +552,6 @@ class DocumentBuilder {
         }
     }
 
-    private void setAuthorAndReviewed(IndexDocument document, Event event) {
-        if (event.getAuthored() == null && event.getReviewed() == null) return;
-
-        // Using a set to avoid duplication
-        Set<String> authorAndReviewerNames = new HashSet<>();
-        Set<String> authorAndReviewerOrcid = new HashSet<>();
-
-        if (event.getAuthored() != null) {
-            authorAndReviewerNames.addAll(event.getAuthored().stream().filter(f -> f.getAuthor() != null).flatMap(e -> e.getAuthor().stream().map(p -> (StringUtils.isEmpty(p.getFirstname()) ? p.getInitial() : p.getFirstname()) + " " + p.getSurname())).collect(Collectors.toList()));
-            authorAndReviewerOrcid.addAll(event.getAuthored().stream().filter(f -> f.getAuthor() != null).flatMap(e -> e.getAuthor().stream().filter(p -> p.getOrcidId() != null).map(Person::getOrcidId)).collect(Collectors.toList()));
-        }
-
-        if (event.getReviewed() != null) {
-            authorAndReviewerNames.addAll(event.getReviewed().stream().filter(f -> f.getAuthor() != null).flatMap(e -> e.getAuthor().stream().map(p -> (StringUtils.isEmpty(p.getFirstname()) ? p.getInitial() : p.getFirstname()) + " " + p.getSurname())).collect(Collectors.toList()));
-            authorAndReviewerOrcid.addAll(event.getReviewed().stream().filter(f -> f.getAuthor() != null).flatMap(e -> e.getAuthor().stream().filter(p -> p.getOrcidId() != null).map(Person::getOrcidId)).collect(Collectors.toList()));
-        }
-
-        document.setAuthor(authorAndReviewerNames.isEmpty() ? null : authorAndReviewerNames);
-        document.setAuthorOrcid(authorAndReviewerOrcid.isEmpty() ? null : authorAndReviewerOrcid);
-    }
-
     private void setRegulator(IndexDocument document, DatabaseObject regulator) {
         if (regulator == null) return;
 
@@ -594,6 +578,38 @@ class DocumentBuilder {
         }
     }
 
+    private void setDiagramOccurrences(IndexDocument document, DatabaseObject databaseObject) {
+        Collection<DiagramOccurrences> dgoc = diagramService.getDiagramOccurrences(databaseObject.getStId());
+        if (dgoc == null || dgoc.isEmpty()) return;
+
+        List<String> diagrams = new ArrayList<>();
+        List<String> occurrences = new ArrayList<>();
+        //noinspection Duplicates
+        for (DiagramOccurrences diagramOccurrence : dgoc) {
+            diagrams.add(diagramOccurrence.getDiagram().getStId());
+            String occurr = diagramOccurrence.getDiagram().getStId() + ":" + Boolean.toString(diagramOccurrence.isInDiagram());
+            if (diagramOccurrence.getOccurrences() != null && !diagramOccurrence.getOccurrences().isEmpty()) {
+                occurr = occurr + ":" + StringUtils.join(diagramOccurrence.getOccurrences().stream().map(DatabaseObject::getStId).collect(Collectors.toList()), ",");
+            } else {
+                occurr = occurr + ":#"; // no occurrences, using one char so less bytes in the solr index
+            }
+            if (diagramOccurrence.getInteractsWith() != null && !diagramOccurrence.getInteractsWith().isEmpty()) {
+                occurr = occurr + ":" + StringUtils.join(diagramOccurrence.getInteractsWith().stream().map(DatabaseObject::getStId).collect(Collectors.toList()), ",");
+            } else {
+                occurr = occurr + ":#"; // empty interactsWith, using one char so less bytes in the solr index
+            }
+            occurrences.add(occurr);
+        }
+        document.setDiagrams(diagrams);
+        document.setOccurrences(occurrences);
+    }
+
+    private void setLowerLevelPathways(IndexDocument document, DatabaseObject databaseObject) {
+        Collection<Pathway> pathways = pathwaysService.getLowerLevelPathwaysIncludingEncapsulation(databaseObject.getStId());
+        if (pathways == null || pathways.isEmpty()) return;
+
+        document.setLlps(pathways.stream().map(DatabaseObject::getStId).collect(Collectors.toList()));
+    }
 
     /**
      * Keyword rely on document.getName. Make sure you are invoking document.setName before setting the keywords
@@ -610,13 +626,12 @@ class DocumentBuilder {
     /**
      * Load a file that is present in classpath
      *
-     * @param fileName the file name
      * @return the content file in a List of String
      */
-    private List<String> loadFile(String fileName) {
+    private List<String> loadFile() {
         try {
             List<String> list = new ArrayList<>();
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/" + fileName)));
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/" + CONTROLLED_VOCABULARY)));
             String line;
             while ((line = bufferedReader.readLine()) != null) {
                 list.add(line);
@@ -638,5 +653,15 @@ class DocumentBuilder {
     @Autowired
     public void setAdvancedDatabaseObjectService(AdvancedDatabaseObjectService advancedDatabaseObjectService) {
         this.advancedDatabaseObjectService = advancedDatabaseObjectService;
+    }
+
+    @Autowired
+    public void setDiagramService(DiagramService diagramService) {
+        this.diagramService = diagramService;
+    }
+
+    @Autowired
+    public void setPathwaysService(PathwaysService pathwaysService) {
+        this.pathwaysService = pathwaysService;
     }
 }

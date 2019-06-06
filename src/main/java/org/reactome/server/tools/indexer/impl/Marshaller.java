@@ -264,7 +264,8 @@ class Marshaller {
     }
 
     private void writeRef(String db, String id, String indent) throws IOException {
-        db = db.replaceAll("/", "_");
+        db = db.trim().replaceAll("\\s*\\(.+\\)\\s*", "");
+        db = db.replaceAll("(/|\\s)", "_");
         writer.write(indent + "<ref dbname=\"" + db + "\" dbkey=\"" + StringEscapeUtils.escapeXml(id) + "\" />" + NEW_LINE);
     }
 
